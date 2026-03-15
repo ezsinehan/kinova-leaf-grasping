@@ -1,63 +1,119 @@
-# IOT4AG Hackathon Manipulator Challenge
+# Kinova Leaf Grasping System
+An autonomous robotic system for collecting plant samples through computer vision.
+
 ![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)
 ![Visual Studio Code](https://img.shields.io/badge/Visual%20Studio%20Code-0078d7.svg?style=for-the-badge&logo=visual-studio-code&logoColor=white)
+![ROS 2 Humble](https://img.shields.io/badge/ROS%202-Humble-22314E.svg?style=for-the-badge&logo=ros&logoColor=white)
 
-[![github](https://img.shields.io/badge/GitHub-ucmercedrobotics-181717.svg?style=flat&logo=github)](https://github.com/ucmercedrobotics)
-[![website](https://img.shields.io/badge/Website-UCMRobotics-5087B2.svg?style=flat&logo=telegram)](https://robotics.ucmerced.edu/)
 [![python](https://img.shields.io/badge/Python-3.10.12-3776AB.svg?style=flat&logo=python&logoColor=white)](https://www.python.org)
-[![pre-commits](https://img.shields.io/badge/pre--commit-enabled-brightgreen?logo=pre-commit&logoColor=white)](https://github.com/pre-commit/pre-commit)
 
-<!-- [![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/) -->
-<!-- TODO: work to enable pydocstyle -->
-<!-- [![pydocstyle](https://img.shields.io/badge/pydocstyle-enabled-AD4CD3)](http://www.pydocstyle.org/en/stable/) -->
+## Overview
+This system uses a Kinova Gen3 6-DOF robotic arm with a Robotiq 2F-85 gripper to autonomously identify and collect plant leaf samples using computer vision. The robot integrates ROS 2 with MoveIt for motion planning and carries an on-arm camera for real-time plant detection.
 
-<!-- [![arXiv](https://img.shields.io/badge/arXiv-2409.04653-b31b1b.svg)](https://arxiv.org/abs/2409.04653) -->
+## Setup & Getting Started
 
-## How to Start
-[Optional] Build your container:
-NOTE: we recommend pulling directly from the registry using `make bash` (see below) instead of building from scratch. It's a huge container and it's easier to just pull.
-However, if you wish to build because you're making changes to the container, then feel free to build yourself.
+### Build Container (Optional)
+To create the Docker image locally:
 ```bash
 make build-image
 ```
+*Note: Building takes significant time. Consider pulling from the registry directly using `make bash` instead.*
 
-You'll be forwarding graphic display to noVNC using your browser.
-First start the Docker network that will manage these packets:
-To start, make your local Docker network to connect your VNC client, local machine, and Kinova together. You'll use this later when remote controlling the Kinova.
+### Initialize Docker Network
+Create a Docker network to connect your local machine, VNC display, and the Kinova arm:
 ```bash
 make network
 ```
 
-Next, standup the VNC container to forward X11 to your web browser. You can see this by searching `localhost:8080/vnc.html` in your browser.
+### Start VNC Display Server
+Launch the VNC container to visualize the simulation and control interface via your browser:
 ```bash
 make vnc
 ```
+Then open `localhost:8080/vnc.html` in your browser to access the display.
 
-## Simulation
-To start the Docker environment:
+## Development Environment
+
+### Option 1: Dev Container (Recommended)
+If using VSCode, open the project in the included Dev Container (`.devcontainer/`). This provides the full ROS 2 environment with all dependencies.
+
+### Option 2: Docker Shell
+Start an interactive Docker environment:
 ```bash
 make bash
 ```
-Note, if you use VSCode, we have a Dev Container for you to work in. This is much simpler if you're familiar with it.
 
-If you're not using the Dev Container, make sure the ROS2 project is built. To be safe, run the following from within the container:
+### Build the ROS 2 Project
+Once in the container, build all packages:
 ```bash
-root@f30dcdb836cc:/iot4ag-challenge# colcon build
+colcon build
 ```
 
-Finally, to launch the ROS2 simulated drivers for MoveIt Kortex control:
+## Running the System
+
+### Simulation Mode
+Launch the Gazebo simulator with MoveIt motion planning:
 ```bash
 make moveit
 ```
+This starts the simulated Kinova arm and the MoveIt motion planning interface.
 
-## Example
-If you want to see the robot move in sim or on target, you can launch the custom example node we prebuilt in a separate shell alongside make moveit. Running `docker exec` 
-in your host machine's terminal will open a new Docker shell, from there this command will just move the arm to an arbitrary position:
+### Example: Moving the Arm
+In a separate terminal (use `docker exec` to open a new shell in the running container), test arm movement:
 ```bash
 make moveit-example
 ```
 
-## Vision
-If you're wanting to do computer vision with your project, come see me about getting real data from the camera. 
-We will use `rosbag` to capture real world data from the camera on the arm and you can replay it on your own computer within your work environment.
-From experience, I recommend working with your personal laptop camera to test out algorithms before moving to target hardware. 
+### Controlling the Arm Directly
+Use the simple arm controller for basic motion commands:
+```bash
+make moveit-sac
+```
+
+## Computer Vision
+
+### Camera Setup
+The Kinova Gen3 arm includes an on-board camera for real-time plant detection and leaf identification. The camera data is available through ROS 2 topics.
+
+### Using Real Camera Data
+For plant detection algorithm development, real sensor data is recommended:
+1. **Capture data with `rosbag`**: Record camera streams and depth data from the physical arm
+2. **Replay locally**: Playback the recorded data in your development environment without needing hardware
+3. **Test offline**: Develop and test computer vision algorithms on real plant samples
+
+### Recommended Workflow
+- Start by testing with your local webcam
+- Develop detection/segmentation algorithms
+- Test with recorded rosbag data from the actual camera
+- Deploy to the physical system once validated
+
+### Vision Topics
+- `/camera/color/image_raw` - RGB image stream
+- `/camera/depth/image_rect_raw` - Depth image stream
+- Image processing utilities are available via cv_bridge integration
+
+## Real Hardware Deployment
+
+To control the physical Kinova arm (requires proper network configuration):
+```bash
+make moveit-target
+```
+Ensure your network is properly configured to communicate with the arm's controller.
+
+## Project Structure
+
+- **`src/kinova_python_control/`** - ROS 2 Python package for arm control and MoveIt integration
+- **`src/next_best_view/`** - Core package for computing and executing next best view actions during plant sample collection
+- **`src/kinova_gen3_6dof_robotiq_2f_85_moveit_config/`** - MoveIt configuration files for the Kinova Gen3 arm with Robotiq gripper
+- **`Dockerfile`** - Container definition with ROS 2 Humble, MoveIt, and all dependencies
+- **`Makefile`** - Convenient commands for building, deploying, and running the system
+
+## Dependencies
+
+- ROS 2 Humble
+- MoveIt (motion planning and control)
+- Gazebo (simulation)
+- OpenCV (via cv_bridge for image processing)
+- Kinova kortex drivers and vision modules
+
+All dependencies are pre-configured in the Docker container.
